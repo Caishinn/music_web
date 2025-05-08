@@ -9,7 +9,18 @@
     />
     <meta name="keywords" content="music, albums, artists, iTunes, chill" />
     <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="My Music - Discover New Albums" />
+    <meta
+      property="og:description"
+      content="Browse and listen to the best albums, from chill vibes to night drives."
+    />
+    <meta property="og:image" content="image_url.jpg" />
+    <meta property="og:url" content="https://yourwebsite.com" />
     <title>My Music</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         --bg-dark: #121212;
@@ -28,7 +39,7 @@
 
       body {
         margin: 0;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family: "Poppins", sans-serif;
         background-color: var(--bg-dark);
         color: var(--text-dark);
         transition: all 0.3s ease;
@@ -126,12 +137,11 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
         text-align: center;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        cursor: pointer;
       }
 
       .album:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        transform: scale(1.05);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
       }
 
       .album img {
@@ -151,12 +161,6 @@
         font-size: 1rem;
         line-height: 1.5;
         margin: 0;
-      }
-
-      .loading {
-        text-align: center;
-        font-size: 1.2rem;
-        margin-top: 30px;
       }
 
       .light-mode {
@@ -183,6 +187,14 @@
       .light-mode #themeToggle:hover {
         background-color: var(--accent-light);
         color: #000;
+      }
+
+      #loadingIndicator {
+        text-align: center;
+        padding: 20px;
+        font-size: 1.2rem;
+        color: var(--accent);
+        display: none;
       }
 
       @media (max-width: 900px) {
@@ -252,6 +264,8 @@
       </nav>
     </header>
 
+    <div id="loadingIndicator">Loading...</div>
+
     <div class="search-container">
       <input
         type="text"
@@ -261,73 +275,63 @@
       />
     </div>
 
-    <div id="loading" class="loading" style="display: none">
-      Loading albums...
-    </div>
     <div class="content"></div>
 
     <script>
       const albumContainer = document.querySelector(".content");
-      const loadingEl = document.getElementById("loading");
-      let debounceTimeout;
 
-      async function fetchAlbums(term = "chill") {
-        loadingEl.style.display = "block";
-        albumContainer.innerHTML = "";
+      async function fetchAlbums(term = "chill", page = 1) {
+        const loadingIndicator = document.getElementById("loadingIndicator");
+        loadingIndicator.style.display = "block"; // Show loading indicator
+
         try {
           const res = await fetch(
             `https://itunes.apple.com/search?term=${encodeURIComponent(
               term
-            )}&entity=album&limit=8`
+            )}&entity=album&limit=8&offset=${(page - 1) * 8}`
           );
           const data = await res.json();
           renderAlbums(data.results);
         } catch (error) {
-          albumContainer.innerHTML =
-            "<p>Failed to load albums. Please try again later.</p>";
+          albumContainer.innerHTML = "<p>Failed to load albums.</p>";
           console.error(error);
         } finally {
-          loadingEl.style.display = "none";
+          loadingIndicator.style.display = "none"; // Hide loading indicator
         }
       }
 
       function renderAlbums(albums) {
         albumContainer.innerHTML = "";
-        albums.forEach((album) => {
-          const albumEl = document.createElement("div");
-          albumEl.className = "album";
-          albumEl.innerHTML = `
-            <img src="${album.artworkUrl100.replace("100x100", "300x300")}" 
-                 alt="${album.collectionName} Cover" loading="lazy" />
-            <h2>${album.collectionName}</h2>
-            <p>${album.artistName}</p>
-          `;
-          albumEl.addEventListener("click", () => {
-            alert(
-              `Album: ${album.collectionName}\nArtist: ${
-                album.artistName
-              }\nReleased: ${album.releaseDate.slice(0, 10)}`
-            );
+        if (albums.length === 0) {
+          albumContainer.innerHTML =
+            "<p>No albums found. Try a different search.</p>";
+        } else {
+          albums.forEach((album) => {
+            const albumEl = document.createElement("div");
+            albumEl.className = "album";
+            albumEl.innerHTML = `
+              <img src="${album.artworkUrl100.replace("100x100", "300x300")}" 
+                   alt="${album.collectionName} Cover by ${
+              album.artistName
+            }" loading="lazy" />
+              <h2>${album.collectionName}</h2>
+              <p>${album.artistName}</p>
+            `;
+            albumContainer.appendChild(albumEl);
           });
-          albumContainer.appendChild(albumEl);
-        });
+        }
       }
 
-      let isLightMode = localStorage.getItem("theme") === "light";
-      if (isLightMode) document.body.classList.add("light-mode");
-
+      let isLightMode = false;
       function toggleTheme() {
+        const body = document.body;
+        const button = document.getElementById("themeToggle");
+        body.classList.toggle("light-mode");
         isLightMode = !isLightMode;
-        document.body.classList.toggle("light-mode", isLightMode);
-        localStorage.setItem("theme", isLightMode ? "light" : "dark");
-        document.getElementById("themeToggle").textContent = isLightMode
+        button.textContent = isLightMode
           ? "Switch to Dark Mode"
           : "Switch to Light Mode";
       }
-
-      document.getElementById("themeToggle").textContent = isLightMode
-        ? "Switch to Dark Mode"
-        : "Switch to Light Mode";
 
       function toggleNav() {
         const nav = document.getElementById("navLinks");
@@ -335,14 +339,12 @@
       }
 
       document.getElementById("searchInput").addEventListener("input", (e) => {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(() => {
-          const term = e.target.value.trim();
-          if (term.length > 2) fetchAlbums(term);
-          else if (term.length === 0) fetchAlbums();
-        }, 400);
+        const term = e.target.value.trim();
+        if (term.length > 2) fetchAlbums(term);
+        else if (term.length === 0) fetchAlbums(); // fallback to default
       });
 
+      // Initial fetch
       fetchAlbums();
     </script>
   </body>
